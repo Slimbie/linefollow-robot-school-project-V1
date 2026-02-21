@@ -1,0 +1,48 @@
+#include <Arduino.h>
+#include <NewPing.h>
+#include <ESP32Encoder.h>
+
+// Pins voor de Ultrasone Sensor
+#define TRIGGER_PIN  5
+#define ECHO_PIN     18
+#define MAX_DISTANCE 200 
+
+// Pins voor de Encoder (Motor Links als voorbeeld)
+#define ENC_A 12
+#define ENC_B 13
+
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+ESP32Encoder encoder;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000); // Korte pauze om de Serial Monitor de tijd te geven
+  
+  Serial.println("--- Start Enkelvoudige Sensor Test ---");
+
+  // Initialiseer de encoder
+  ESP32Encoder::useInternalWeakPullResistors = UP; // Belangrijk voor NC20 motors
+  encoder.attachFullQuad(ENC_A, ENC_B);
+  encoder.clearCount(); // Zet de teller op 0
+}
+
+void loop() {
+  // 1. Lees de afstand (elke 100ms om storing te voorkomen)
+  delay(100);
+  unsigned int afstand = sonar.ping_cm();
+
+  // 2. Lees de encoder stand
+  long encoderStand = (long)encoder.getCount();
+
+  // 3. Toon de resultaten
+  Serial.print("Afstand: ");
+  if (afstand == 0) {
+    Serial.print("Buiten bereik");
+  } else {
+    Serial.print(afstand);
+    Serial.print(" cm");
+  }
+
+  Serial.print("  |  Encoder Stand: ");
+  Serial.println(encoderStand);
+}

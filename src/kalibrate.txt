@@ -1,0 +1,100 @@
+#include <Arduino.h>
+#include "config.h"
+#include <ESP32Encoder.h>
+
+// Verwijs naar de encoders die in logic.cpp staan
+extern ESP32Encoder encL, encR;
+
+float pid_error = 0, vorige_pid_error = 0, integraal_pid = 0;
+bool tuningActief = false;
+int testMode = 1; 
+bool simulatieMode = false;
+int simFout = 0; 
+
+void SensorTask(void * pvParameters) {
+    for(;;) { scanSensoren(); vTaskDelay(2 / portTICK_PERIOD_MS); }
+}
+
+void setup() {
+    Serial.begin(115200);
+    setupHardware();
+    pinMode(START_BUTTON_PIN, INPUT_PULLUP);
+    
+    // De encoders worden hier geconfigureerd
+    ESP32Encoder::useInternalWeakPullResistors = UP;
+    encL.attachFullQuad(12, 13);
+    encR.attachFullQuad(15, 2);
+    
+    xTaskCreatePinnedToCore(SensorTask, "Sensors", 4000, NULL, 1, NULL, 0);
+
+    Serial.println("\n*** TUNING TOOL GEREED ***");
+}
+
+void verwerkSerial() {
+    if (Serial.available() > 0) {
+        String input = Serial.readStringUntil('\n');
+        input.trim();
+        if (input.length() == 0) return;
+
+        // Simulatie modus (om droog te testen zonder sensoren)
+        if (input.startsWith("sim")) {
+            simulatieMode = true;
+            simFout = input.substring(3).toInt();
+            Serial.printf(">>> SIMULATIE: Lijnfout ingesteld op %d\n", simFout);
+            return;
+        }
+
+        char cmd = input.charAt(0);
+        float val = input.substring(1).toFloat();
+
+        // PID en Snelheid aanpassen
+        if (cmd == 'p') Kp = val;
+        else if (cmd == 'i') Ki = val; // <--- DEZE IS NU TOEGEVOEGD VOOR JE ONDERZOEK
+        else if (cmd == 'd') Kd = val;
+        else if (cmd == 's') basisSnelheid = (int)val;
+        
+        // 180-graden draai test
+        else if (cmd == 'u') {
+            Serial.println(">>> ACTIE: Start 180 graden draai test...");
+            encL.clearCount();
+            motorSturing(130, -130);
+            delay(850); // Pas dit getal aan tot hij exact 180 graden is
+            motorSturing(0,0);
+            Serial.printf(">>> RESULTAAT: Ticks voor turn: %ld\n", (long)encL.getCount());
+        }
+
+        // Bevestiging naar je scherm (nu met Ki erbij!)
+        Serial.printf("UPDATE -> P:%.2f | I:%.3f | D:%.2f | Snelheid:%d\n", Kp, Ki, Kd, basisSnelheid);
+    }
+}
+
+
+void loop() {
+    verwerkSerial();
+
+    static unsigned long lastBtn = 0;
+    if (millis() - lastBtn > 500 && digitalRead(START_BUTTON_PIN) == LOW) {
+        tuningActief = !tuningActief;
+        lastBtn = millis();
+        if(!tuningActief) motorSturing(0,0);
+        else Serial.println("MOTOREN AAN");
+    }
+
+    if (tuningActief) {
+        static unsigned long lastLogic = 0;
+        if (millis() - lastLogic >= 10) {
+            lastLogic = millis();
+            float corr;
+            if (simulatieMode) {
+                corr = (Kp * simFout) + (Kd * (simFout - vorige_pid_error));
+                vorige_pid_error = simFout;
+            } else {
+                corr = berekenPID(pid_error, vorige_pid_error, integraal_pid, basisSnelheid);
+            }
+            motorSturing(basisSnelheid + (int)corr, basisSnelheid - (int)corr);
+            if (millis() % 500 < 10) {
+                Serial.printf("S:%d Err:%.1f Corr:%.1f\n", basisSnelheid, (simulatieMode ? (float)simFout : pid_error), corr);
+            }
+        }
+    }
+}
