@@ -9,11 +9,11 @@ int huidigeNode = 0; // Hier maken we hem aan
 // ONDERZOEKS-PID WAARDEN
 const float KP_LOW = 2.5, KI_LOW = 0.0, KD_LOW = 1.2; 
 const float KP_HIGH = 4.0, KI_HIGH = 0.05, KD_HIGH = 3.5; 
-const int SPEED_LOW = 120;
-const int SPEED_HIGH = 250;
+const int SPEED_LOW = 90;
+const int SPEED_HIGH = 180;//250 is max, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v 
 
 float Kp = 2.5, Ki = 0.0, Kd = 1.2;
-int basisSnelheid = 120;
+int basisSnelheid = 100;
 
 void berekenDynamischePid(int huidigeSnelheid) {
     float ratio = (float)(huidigeSnelheid - SPEED_LOW) / (SPEED_HIGH - SPEED_LOW);
@@ -57,8 +57,8 @@ int bepaalDoelSnelheid() {
     // Kijk wat het type is van de KOMENDE node (bijv. 200 ticks vooruit)
     for (int i = huidigeNode; i < nodeCount; i++) {
         if (route[i].encoderPos - huidigePos < 500) { // Anticipeer 500 ticks vooruit
-            if (route[i].type == TURN90) return 100; // Rem af voor scherpe bocht
-            if (route[i].type == CURVE) return 180;  // Iets sneller in flauwe bocht
+            if (route[i].type == TURN90) return 90; // Rem af voor scherpe bocht
+            if (route[i].type == CURVE) return 140;  // Iets sneller in flauwe bocht
         }
     }
     return 250; // Rechtdoor? Vol gas!

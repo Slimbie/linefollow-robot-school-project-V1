@@ -1,9 +1,9 @@
 #include "config.h"
 
 const float ACCELERATIE = 1.0; 
-const int SNELHEID_MAPPING = 120;
-const int SNELHEID_MAX = 250;
-const int SNELHEID_BOCHT = 100;
+const int SNELHEID_MAPPING = 100;
+const int SNELHEID_MAX = 180;//max technisch250, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v
+const int SNELHEID_BOCHT = 90;
 
 static float huidigeL = 0;
 static float huidigeR = 0;
