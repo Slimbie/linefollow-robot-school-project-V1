@@ -21,9 +21,20 @@
 #define TRIG_PIN 5
 #define ECHO_PIN 18
 
-// --- STATES & TYPES ---
+// De verschillende statussen van de robot
 enum State { STANDBY, START_DELAY, SEARCH_LINE, MAPPING, SPEEDRUN, OBSTACLE_MANOEUVRE };
-enum NodeType { STRAIGHT, CURVE, TURN90, OBSTACLE, FINISH };
+
+// Zorg dat deze exact overeenkomen met je regelboek!
+enum NodeType { 
+    STRAIGHT, 
+    TURN90, 
+    CROSSING,   // Kruispunten & T-splitsing (i.i.4 & 5)
+    ZIGZAG,     // Zaagtand & Golfjes (i.i.8 & 9)
+    OBSTACLE,   // Witte cilinder (iii)
+    FINISH      // Zwart stopvak (d)
+};
+
+
 
 struct Node {
     long encoderPos;
@@ -54,5 +65,7 @@ float berekenPID(float &error, float &vorige_error, float &integraal, int snelhe
 void registreerNode(NodeType t, int intens = 0);
 void registreerObstakel(long startPos, long afstandL, long afstandR);
 int bepaalDoelSnelheid();
+void analyseerParcours(); 
+
 
 #endif

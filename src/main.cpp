@@ -100,10 +100,12 @@ void loop() {
                 break;
 
             case MAPPING:
+                // PID Berekening (De robot blijft op de lijn)
                 correctie = berekenPID(error, vorige_error, integraal, SNELHEID_MAPPING);
                 motorSturing(SNELHEID_MAPPING + (int)correctie, SNELHEID_MAPPING - (int)correctie);
-                // Tip: hier zou je ook bochten kunnen detecteren en 'registreerNode' aanroepen
+                analyseerParcours(); // Check continu op nieuwe nodes
                 break;
+            
 
             case SPEEDRUN:
                 { // Accolades nodig omdat we 'doelSnelheid' hier lokaal aanmaken
