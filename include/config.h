@@ -7,7 +7,7 @@
 // --- PINNEN: INTERFACE ---
 #define MODE_SWITCH_PIN 23
 #define START_BUTTON_PIN 19
-#define THRESHOLD 3000
+#define THRESHOLD 3000 // dit past de lees waarde aan van de ir sensors
 
 // --- PINNEN: MOTOREN (OT2065 / L298N) ---
 #define MOT_L_PWM 27
