@@ -1,9 +1,11 @@
 #include "config.h"
 
-const float ACCELERATIE = 1.0; 
-const int SNELHEID_MAPPING = 100;
-const int SNELHEID_MAX = 180;//max technisch250, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v
-const int SNELHEID_BOCHT = 90;
+extern int SPEED_HIGH;
+
+const float ACCELERATIE = 1.0; // Hoe snel de motors versnellen/vertragen (hogere waarde = snellere reactie, maar kan slip veroorzaken)
+//const int SNELHEID_MAX = 180;
+//max technisch250, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v op max charge batterij
+//const int SNELHEID_BOCHT = 90;
 
 static float huidigeL = 0;
 static float huidigeR = 0;
@@ -21,14 +23,25 @@ void setupHardware() {
 }
 
 void motorSturing(int doelL, int doelR) {
-    if (huidigeL < doelL) huidigeL += ACCELERATIE;
-    else if (huidigeL > doelL) huidigeL -= ACCELERATIE;
+    // Instant stop als doel 0 is
+    if (doelL == 0 && doelR == 0) {
+        huidigeL = 0;
+        huidigeR = 0;
+    } else {
+        if (huidigeL < doelL) huidigeL += ACCELERATIE;
+        else if (huidigeL > doelL) huidigeL -= ACCELERATIE;
 
-    if (huidigeR < doelR) huidigeR += ACCELERATIE;
-    else if (huidigeR > doelR) huidigeR -= ACCELERATIE;
+        if (huidigeR < doelR) huidigeR += ACCELERATIE;
+        else if (huidigeR > doelR) huidigeR -= ACCELERATIE;
+    }
 
-    gpio_set_level(MOT_L_AIN1, huidigeL >= 0);
-    gpio_set_level(MOT_L_AIN2, huidigeL < 0);
+    // Beperk waarden zodat we binnen PWM 0-255 blijven
+    huidigeL = constrain(huidigeL, -255, 255);
+    huidigeR = constrain(huidigeR, -255, 255);
+
+    // Linker motor is fysiek omgekeerd gemonteerd: invert sign bij outputs
+    gpio_set_level(MOT_L_AIN1, huidigeL <= 0);
+    gpio_set_level(MOT_L_AIN2, huidigeL > 0);
     gpio_set_level(MOT_R_BIN1, huidigeR >= 0);
     gpio_set_level(MOT_R_BIN2, huidigeR < 0);
 

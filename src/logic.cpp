@@ -2,22 +2,24 @@
 
 ESP32Encoder encL;
 ESP32Encoder encR;
-Node route[200];
+Node route[200]; // aanname: max 200 segmenten in het parcours, pas aan indien nodig
 int nodeCount = 0;
 int huidigeNode = 0; // Hier maken we hem aan
 
 // ONDERZOEKS-PID WAARDEN
-const float KP_LOW = 2.5, KI_LOW = 0.0, KD_LOW = 1.2; 
-const float KP_HIGH = 4.0, KI_HIGH = 0.05, KD_HIGH = 3.5; 
+//const float KP_LOW = 2.5, KI_LOW = 0.0, KD_LOW = 1.2; 
+//const float KP_HIGH = 4.0, KI_HIGH = 0.05, KD_HIGH = 3.5; 
 const int SPEED_LOW = 90;
+const int SNELHEID_MAPPING = 100;
 const int SPEED_HIGH = 180;//250 is max, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v 
 
-float Kp = 2.5, Ki = 0.0, Kd = 1.2;
+
+float Kp = 8, Ki = 0.01, Kd = 1.2;
 int basisSnelheid = 100;
 // Globale variabelen voor communicatie met mapping.cpp
 int sBinair[8];
 int aantalGroepen = 0;
-//dit heb ik even in commentaar gezet omdat ik niet zeker ben of dit wel een ding is ?
+//dit heb ik even in commentaar gezet omdat ik niet zeker ben of dit wel een ding is ? denk van niet
 /*
 void berekenDynamischePid(int huidigeSnelheid) {
     float ratio = (float)(huidigeSnelheid - SPEED_LOW) / (SPEED_HIGH - SPEED_LOW);
@@ -58,11 +60,12 @@ int verwerkSensorenEnFilterLijn() {
     return totaalZwart;
 }
 
-void berekenDynamischePid(int huidigeSnelheid) {
-    Kp = KP_HIGH;
+/* void berekenDynamischePid(int huidigeSnelheid) {
+    Kp = KP_HIGH;// kp wordt gelijk gesteld naar kp_high
     Ki = KI_HIGH;
     Kd = KD_HIGH;// moet mis nul zijn omdat we anders te veel corrigeren bij hoge snelheden, maar dit zijn de waarden die ik het beste vond tijdens het testen
 }
+*/
 
 //oude pid berekenaar houd geen rekening met corner fouten!
 /*
@@ -88,7 +91,6 @@ float berekenPID(float &error, float &vorige_error, float &integraal, int snelhe
     return correctie;
 }*/
 float berekenPID(float &error, float &vorige_error, float &integraal, int snelheid) {
-    berekenDynamischePid(snelheid);
     
     // Gebruik de nieuwe filter functie
     int totaalZwart = verwerkSensorenEnFilterLijn();
@@ -119,8 +121,8 @@ float berekenPID(float &error, float &vorige_error, float &integraal, int snelhe
 }
 
 int bepaalDoelSnelheid() {
-    // Kijk of we dichtbij het punt zijn waar we een bocht hebben opgeslagen
-    long huidigePos = encL.getCount();
+    // Gebruik gemiddelde encoderpositie (beide wielen) voor stabieler afstanden
+    long huidigePos = (ENC_LEFT_COUNT() + ENC_RIGHT_COUNT()) / 2;
     
     // Als we voorbij het punt van de huidige node zijn, ga naar de volgende
     if (huidigeNode < nodeCount && huidigePos > route[huidigeNode].encoderPos) {
@@ -129,7 +131,7 @@ int bepaalDoelSnelheid() {
 
     // Kijk wat het type is van de KOMENDE node (bijv. 200 ticks vooruit)
     for (int i = huidigeNode; i < nodeCount; i++) {
-        if (route[i].encoderPos - huidigePos < 500) { // Anticipeer 500 ticks vooruit
+        if (route[i].encoderPos - huidigePos < 1200) { // Anticipeer 1200 ticks vooruit (~1 rotatie)
             if (route[i].type == TURN90) return SPEED_HIGH-90; // Rem af voor scherpe bocht
             if (route[i].type == CROSSING) return SPEED_HIGH-60; // Iets minder remmen voor kruispunt
             if (route[i].type == ZIGZAG) return SPEED_HIGH-50; // Rem iets voor zigzag, maar niet te veel want we moeten snel corrigeren
@@ -143,9 +145,17 @@ int bepaalDoelSnelheid() {
 // slaagt positie op van hindernis
 void registreerNode(NodeType t, int intens) {
     if (nodeCount < 200) {
-        route[nodeCount].encoderPos = encL.getCount();
+        long pos = (encL.getCount() + encR.getCount()) / 2;
+        route[nodeCount].encoderPos = pos;
         route[nodeCount].type = t;
-        route[nodeCount].intensiteit = intens;
+
+        // Als er geen expliciete intensiteit opgegeven is, sla de afstand vanaf de vorige node op.
+        if (intens == 0 && nodeCount > 0) {
+            route[nodeCount].intensiteit = pos - route[nodeCount - 1].encoderPos;
+        } else {
+            route[nodeCount].intensiteit = intens;
+        }
+
         nodeCount++;
     }
 }
