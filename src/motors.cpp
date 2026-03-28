@@ -2,7 +2,7 @@
 
 extern int SPEED_HIGH;
 
-const float ACCELERATIE = 1.0; // Hoe snel de motors versnellen/vertragen (hogere waarde = snellere reactie, maar kan slip veroorzaken)
+const float ACCELERATIE = 4.0; // Hoe snel de motors versnellen/vertragen (hogere waarde = snellere reactie, maar kan slip veroorzaken)
 //const int SNELHEID_MAX = 180;
 //max technisch250, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v op max charge batterij
 //const int SNELHEID_BOCHT = 90;

@@ -9,26 +9,18 @@ int huidigeNode = 0; // Hier maken we hem aan
 // ONDERZOEKS-PID WAARDEN
 //const float KP_LOW = 2.5, KI_LOW = 0.0, KD_LOW = 1.2; 
 //const float KP_HIGH = 4.0, KI_HIGH = 0.05, KD_HIGH = 3.5; 
-const int SPEED_LOW = 90;
-const int SNELHEID_MAPPING = 100;
-const int SPEED_HIGH = 180;//250 is max, maar is te veel volt voor deze motors dus limieteer tot 180 voor 6v 
+const int SPEED_LOW = 100;
+const int SNELHEID_MAPPING = 60;
+const int SPEED_HIGH = 250;// verhoogd naar max voor snellere speedrun 
 
 
-float Kp = 8, Ki = 0.01, Kd = 1.2;
-int basisSnelheid = 100;
+// PID-tuning voor stabiel gedrag: minder overshooting, rustiger terugdraaien
+float Kp = 2.3, Ki = 0.00, Kd = 16.0;  // Was: Kp=0.8, Ki=0.008, Kd=14.0 -> Nu: rustiger + meer demping
+int basisSnelheid = 100; 
 // Globale variabelen voor communicatie met mapping.cpp
 int sBinair[8];
 int aantalGroepen = 0;
-//dit heb ik even in commentaar gezet omdat ik niet zeker ben of dit wel een ding is ? denk van niet
-/*
-void berekenDynamischePid(int huidigeSnelheid) {
-    float ratio = (float)(huidigeSnelheid - SPEED_LOW) / (SPEED_HIGH - SPEED_LOW);
-    ratio = constrain(ratio, 0.0, 1.0);
-    Kp = KP_LOW + (ratio * (KP_HIGH - KP_LOW));
-    Ki = KI_LOW + (ratio * (KI_HIGH - KI_LOW));
-    Kd = KD_LOW + (ratio * (KD_HIGH - KD_LOW));
-}
-*/
+
 
 
 // --- NIEUWE FUNCTIE: FILTERT DE LIJN BIJ KRUISPUNTEN ---
@@ -60,44 +52,23 @@ int verwerkSensorenEnFilterLijn() {
     return totaalZwart;
 }
 
-/* void berekenDynamischePid(int huidigeSnelheid) {
-    Kp = KP_HIGH;// kp wordt gelijk gesteld naar kp_high
-    Ki = KI_HIGH;
-    Kd = KD_HIGH;// moet mis nul zijn omdat we anders te veel corrigeren bij hoge snelheden, maar dit zijn de waarden die ik het beste vond tijdens het testen
-}
-*/
 
-//oude pid berekenaar houd geen rekening met corner fouten!
-/*
-float berekenPID(float &error, float &vorige_error, float &integraal, int snelheid) {
-    berekenDynamischePid(snelheid);
-    int s[8];
-    int totaal = 0;
-    for(int i=0; i<8; i++) {
-        s[i] = (sensorData[i] > THRESHOLD) ? 1 : 0;
-        totaal += s[i];
-    }
-    if (totaal == 0) {
-        error = (vorige_error > 0) ? 40 : -40;
-        return (Kp * error); 
-    }
-    float teller = (s[0]*-40) + (s[1]*-30) + (s[2]*-20) + (s[3]*-10) + 
-                   (s[4]*10) + (s[5]*20) + (s[6]*30) + (s[7]*40);
-    error = teller / totaal;
-    integraal = constrain(integraal + error, -200, 200);
-    float afgeleide = error - vorige_error;
-    float correctie = (Kp * error) + (Ki * integraal) + (Kd * afgeleide);
-    vorige_error = error;
-    return correctie;
-}*/
 float berekenPID(float &error, float &vorige_error, float &integraal, int snelheid) {
     
     // Gebruik de nieuwe filter functie
     int totaalZwart = verwerkSensorenEnFilterLijn();
 
     if (totaalZwart == 0) {
-        error = (vorige_error > 0) ? 40 : -40;
-        return (Kp * error); 
+        // Bij lijnverlies: milde correctie om bochten te volgen zonder te hard te reageren
+        error = vorige_error * 0.5;  // Halveer vorige error voor rustige drift
+        
+        // Integraal langzaam afbouwen om wind-up te voorkomen
+        integraal = constrain(integraal * 0.8, -100, 100);
+        
+        float afgeleide = error - vorige_error;
+        float correctie = (Kp * error) + (Ki * integraal) + (Kd * afgeleide);
+        vorige_error = error;
+        return correctie;
     }
 
     // Berekening op basis van de (gefilterde) sBinair
@@ -133,7 +104,7 @@ int bepaalDoelSnelheid() {
     for (int i = huidigeNode; i < nodeCount; i++) {
         if (route[i].encoderPos - huidigePos < 1200) { // Anticipeer 1200 ticks vooruit (~1 rotatie)
             if (route[i].type == TURN90) return SPEED_HIGH-90; // Rem af voor scherpe bocht
-            if (route[i].type == CROSSING) return SPEED_HIGH-60; // Iets minder remmen voor kruispunt
+            if (route[i].type == CROSSING) return SPEED_HIGH; // Geen remming voor T-splitsingen rechtdoor
             if (route[i].type == ZIGZAG) return SPEED_HIGH-50; // Rem iets voor zigzag, maar niet te veel want we moeten snel corrigeren
             if (route[i].type == OBSTACLE) return SPEED_HIGH-80; // Rem flink af voor obstakel
             if (route[i].type == FINISH) return SPEED_LOW; // Bereid je voor op de finish, rem flink af
